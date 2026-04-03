@@ -1,0 +1,4 @@
+https://rsshub.app/36kr/newsflashes
+https://rsshub.app/zhihu/daily
+https://www.solidot.org/index.rss
+https://www.reddit.com/r/programming/.rss

@@ -1,0 +1,30 @@
+name: Daily News to Feishu
+
+on:
+  schedule:
+    - cron: '3 23 * * *'
+  workflow_dispatch:
+
+jobs:
+  send-news:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run news bot
+        env:
+          FEISHU_WEBHOOK: ${{ secrets.FEISHU_WEBHOOK }}
+          FEISHU_KEYWORD: 华为
+          MAX_ITEMS_PER_FEED: 2
+          MAX_TOTAL_ITEMS: 8
+        run: python send_news.py
