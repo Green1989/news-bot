@@ -1,2 +1,10 @@
+# Huawei 官方中文新闻
 https://www.huawei.com/cn/rss-feeds/huawei-updates/rss
-https://www.huawei.com/en/rss-feeds/huawei-updates/rss
+
+# Google News 聚合，中文/英文近 3 天华为新闻
+https://news.google.com/rss/search?q=%22%E5%8D%8E%E4%B8%BA%22+when:3d&hl=zh-CN&gl=CN&ceid=CN:zh-Hans
+https://news.google.com/rss/search?q=%22Huawei%22+when:3d&hl=en-US&gl=US&ceid=US:en
+
+# 华为垂直媒体
+https://www.huaweicentral.com/feed/
+https://www.phonearena.com/feed/huawei
