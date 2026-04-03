@@ -1,6 +1,7 @@
 import html
 import os
-from datetime import datetime
+from calendar import timegm
+from datetime import datetime, timedelta, timezone
 
 import feedparser
 import requests
@@ -12,6 +13,7 @@ MAX_ITEMS_PER_FEED = int(os.getenv("MAX_ITEMS_PER_FEED", "2"))
 MAX_TOTAL_ITEMS = int(os.getenv("MAX_TOTAL_ITEMS", "8"))
 FEEDS_FILE = os.getenv("FEEDS_FILE", "feeds.txt")
 KEYWORD = os.getenv("FEISHU_KEYWORD", "华为")
+MAX_ITEM_AGE_DAYS = int(os.getenv("MAX_ITEM_AGE_DAYS", "3"))
 MATCH_KEYWORDS = [
     keyword.strip()
     for keyword in os.getenv("FEISHU_MATCH_KEYWORDS", KEYWORD).split(",")
@@ -47,12 +49,30 @@ def load_feeds(path: str):
     return feeds
 
 
+def parse_entry_published_at(entry):
+    parsed_time = entry.get("published_parsed") or entry.get("updated_parsed")
+    if not parsed_time:
+        return None
+    return datetime.fromtimestamp(timegm(parsed_time), tz=timezone.utc)
+
+
+def is_recent(published_at: datetime | None) -> bool:
+    if published_at is None:
+        return False
+    cutoff = datetime.now(timezone.utc) - timedelta(days=MAX_ITEM_AGE_DAYS)
+    return published_at >= cutoff
+
+
 def fetch_items(feed_url: str):
     parsed = feedparser.parse(feed_url)
     items = []
     feed_title = parsed.feed.get("title", feed_url)
 
     for entry in parsed.entries:
+        published_at = parse_entry_published_at(entry)
+        if not is_recent(published_at):
+            continue
+
         title = clean_text(entry.get("title", "无标题"), 80)
         summary = clean_text(
             entry.get("summary", "") or entry.get("description", ""),
@@ -68,6 +88,7 @@ def fetch_items(feed_url: str):
                 "title": title,
                 "summary": summary,
                 "link": link,
+                "published_at": published_at,
             }
         )
 
@@ -117,6 +138,7 @@ def main():
         except Exception as e:
             print(f"[WARN] failed to parse {feed}: {e}")
 
+    all_items.sort(key=lambda item: item["published_at"], reverse=True)
     all_items = all_items[:MAX_TOTAL_ITEMS]
 
     if not all_items:

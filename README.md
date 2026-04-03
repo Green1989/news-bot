@@ -11,6 +11,7 @@
 4. 可选设置：
    - `FEISHU_KEYWORD`：飞书消息标题里显示的主题名称
    - `FEISHU_MATCH_KEYWORDS`：真正用于筛选新闻的关键词列表，多个关键词用英文逗号分隔
+   - `MAX_ITEM_AGE_DAYS`：只发送最近多少天内发布的新闻，默认 `3`
 5. 手动运行一次 Actions 测试
 
 ## 定时说明
