@@ -183,6 +183,92 @@ class MainFlowTests(unittest.TestCase):
         sent_text = mocked_send.call_args.args[0]
         self.assertLess(sent_text.index("华为更近的新闻"), sent_text.index("华为较旧的新闻"))
 
+    def test_main_deduplicates_same_story_and_prefers_better_source(self):
+        annual_cn = {
+            "feed_title": "新闻动态",
+            "title": "华为发布2025年年度报告：经营结果符合预期",
+            "summary": "中文版本更适合当前机器人受众",
+            "link": "https://www.huawei.com/cn/news/2026/3/annual-report-2025.html",
+            "published_at": 300,
+        }
+        annual_en = {
+            "feed_title": "Press Release",
+            "title": "Huawei Releases 2025 Annual Report: Performance in Line with Forecast",
+            "summary": "English variant of the same story",
+            "link": "https://www.huawei.com/en/news/2026/3/annual-report-2025.html",
+            "published_at": 290,
+        }
+
+        with (
+            patch.object(send_news, "load_feeds", return_value=["feed-a", "feed-b"]),
+            patch.object(send_news, "fetch_items", side_effect=[[annual_en], [annual_cn]]),
+            patch.object(send_news, "send_to_feishu") as mocked_send,
+            patch.object(send_news, "MAX_TOTAL_ITEMS", 5),
+        ):
+            send_news.main()
+
+        sent_text = mocked_send.call_args.args[0]
+        self.assertIn("华为发布2025年年度报告：经营结果符合预期", sent_text)
+        self.assertNotIn("Huawei Releases 2025 Annual Report", sent_text)
+
+    def test_main_fills_message_with_more_unique_items_after_dedup(self):
+        duplicate_a = {
+            "feed_title": "新闻动态",
+            "title": "华为发布2025年年度报告：经营结果符合预期",
+            "summary": "A",
+            "link": "https://www.huawei.com/cn/news/2026/3/annual-report-2025.html",
+            "published_at": 500,
+        }
+        duplicate_b = {
+            "feed_title": "Press Release",
+            "title": "Huawei Releases 2025 Annual Report: Performance in Line with Forecast",
+            "summary": "B",
+            "link": "https://www.huawei.com/en/news/2026/3/annual-report-2025.html",
+            "published_at": 490,
+        }
+        item_2 = {
+            "feed_title": "IT之家",
+            "title": "华为 Mate 新机曝光",
+            "summary": "2",
+            "link": "https://example.com/2",
+            "published_at": 480,
+        }
+        item_3 = {
+            "feed_title": "36氪",
+            "title": "华为云宣布新合作",
+            "summary": "3",
+            "link": "https://example.com/3",
+            "published_at": 470,
+        }
+        item_4 = {
+            "feed_title": "爱范儿",
+            "title": "华为发布 AI 存储方案",
+            "summary": "4",
+            "link": "https://example.com/4",
+            "published_at": 460,
+        }
+
+        with (
+            patch.object(send_news, "load_feeds", return_value=["feed-a", "feed-b", "feed-c"]),
+            patch.object(
+                send_news,
+                "fetch_items",
+                side_effect=[
+                    [duplicate_a, item_2],
+                    [duplicate_b, item_3],
+                    [item_4],
+                ],
+            ),
+            patch.object(send_news, "send_to_feishu") as mocked_send,
+            patch.object(send_news, "MAX_TOTAL_ITEMS", 4),
+        ):
+            send_news.main()
+
+        sent_text = mocked_send.call_args.args[0]
+        self.assertEqual(sent_text.count("\n\n"), 4)
+        self.assertIn("华为发布 AI 存储方案", sent_text)
+        self.assertNotIn("Huawei Releases 2025 Annual Report", sent_text)
+
 
 if __name__ == "__main__":
     unittest.main()

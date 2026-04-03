@@ -1,7 +1,9 @@
 import html
 import os
+import re
 from calendar import timegm
 from datetime import datetime, timedelta, timezone
+from urllib.parse import urlparse
 
 import feedparser
 import requests
@@ -19,6 +21,7 @@ MATCH_KEYWORDS = [
     for keyword in os.getenv("FEISHU_MATCH_KEYWORDS", KEYWORD).split(",")
     if keyword.strip()
 ]
+TITLE_STOPWORDS = ("huawei", "华为")
 
 
 def clean_text(text: str, limit: int = 140) -> str:
@@ -98,6 +101,64 @@ def fetch_items(feed_url: str):
     return items
 
 
+def normalize_title(title: str) -> str:
+    text = title.lower()
+    for word in TITLE_STOPWORDS:
+        text = text.replace(word, "")
+    return re.sub(r"[^0-9a-z\u4e00-\u9fff]+", "", text)
+
+
+def story_key(item) -> str:
+    path = urlparse(item.get("link", "")).path.rstrip("/")
+    slug = path.split("/")[-1] if path else ""
+    if slug and slug.lower().endswith(".html"):
+        return f"slug:{slug[:-5].lower()}"
+    normalized_title = normalize_title(item.get("title", ""))
+    return f"title:{normalized_title[:40]}"
+
+
+def source_priority(item) -> tuple[int, int, int]:
+    link = item.get("link", "").lower()
+    feed_title = item.get("feed_title", "").lower()
+    score = 0
+    if "/cn/" in link:
+        score += 40
+    if "ithome" in link or "it之家" in feed_title:
+        score += 30
+    if "36kr" in link or "ifanr" in link or "mydrivers" in link:
+        score += 20
+    if "huawei.com" in link:
+        score += 10
+    if "press release" in feed_title or "/en/" in link:
+        score -= 10
+    return (
+        score,
+        len(item.get("summary", "")),
+        int(published_sort_value(item)),
+    )
+
+
+def deduplicate_items(items):
+    best_items = {}
+    for item in items:
+        key = story_key(item)
+        current = best_items.get(key)
+        if current is None or source_priority(item) > source_priority(current):
+            best_items[key] = item
+    return sorted(
+        best_items.values(),
+        key=published_sort_value,
+        reverse=True,
+    )
+
+
+def published_sort_value(item) -> float:
+    published_at = item.get("published_at")
+    if hasattr(published_at, "timestamp"):
+        return published_at.timestamp()
+    return float(published_at or 0)
+
+
 def build_message(all_items):
     today = datetime.now().strftime("%Y-%m-%d")
     lines = [f"{KEYWORD}早报 {today}", ""]
@@ -138,7 +199,7 @@ def main():
         except Exception as e:
             print(f"[WARN] failed to parse {feed}: {e}")
 
-    all_items.sort(key=lambda item: item["published_at"], reverse=True)
+    all_items = deduplicate_items(all_items)
     all_items = all_items[:MAX_TOTAL_ITEMS]
 
     if not all_items:
