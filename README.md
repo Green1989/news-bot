@@ -8,7 +8,10 @@
 2. 在 GitHub 仓库里设置 Secret：
    - `FEISHU_WEBHOOK`
 3. 修改 `feeds.txt`，一行一个 RSS 源
-4. 手动运行一次 Actions 测试
+4. 可选设置：
+   - `FEISHU_KEYWORD`：飞书消息标题里显示的主题名称
+   - `FEISHU_MATCH_KEYWORDS`：真正用于筛选新闻的关键词列表，多个关键词用英文逗号分隔
+5. 手动运行一次 Actions 测试
 
 ## 定时说明
 
@@ -16,3 +19,4 @@
 
 ```yaml
 - cron: '3 23 * * *'
+```

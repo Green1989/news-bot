@@ -1,9 +1,10 @@
-import os
 import html
-import requests
-import feedparser
-from bs4 import BeautifulSoup
+import os
 from datetime import datetime
+
+import feedparser
+import requests
+from bs4 import BeautifulSoup
 
 
 FEISHU_WEBHOOK = os.environ["FEISHU_WEBHOOK"]
@@ -11,6 +12,11 @@ MAX_ITEMS_PER_FEED = int(os.getenv("MAX_ITEMS_PER_FEED", "2"))
 MAX_TOTAL_ITEMS = int(os.getenv("MAX_TOTAL_ITEMS", "8"))
 FEEDS_FILE = os.getenv("FEEDS_FILE", "feeds.txt")
 KEYWORD = os.getenv("FEISHU_KEYWORD", "华为")
+MATCH_KEYWORDS = [
+    keyword.strip()
+    for keyword in os.getenv("FEISHU_MATCH_KEYWORDS", KEYWORD).split(",")
+    if keyword.strip()
+]
 
 
 def clean_text(text: str, limit: int = 140) -> str:
@@ -22,6 +28,13 @@ def clean_text(text: str, limit: int = 140) -> str:
     if len(text) > limit:
         text = text[: limit - 1] + "…"
     return text
+
+
+def matches_keyword(title: str, summary: str, keywords: list[str]) -> bool:
+    if not keywords:
+        return True
+    haystack = f"{title}\n{summary}".lower()
+    return any(keyword.lower() in haystack for keyword in keywords)
 
 
 def load_feeds(path: str):
@@ -39,12 +52,15 @@ def fetch_items(feed_url: str):
     items = []
     feed_title = parsed.feed.get("title", feed_url)
 
-    for entry in parsed.entries[:MAX_ITEMS_PER_FEED]:
+    for entry in parsed.entries:
         title = clean_text(entry.get("title", "无标题"), 80)
         summary = clean_text(
             entry.get("summary", "") or entry.get("description", ""),
             100,
         )
+        if not matches_keyword(title, summary, MATCH_KEYWORDS):
+            continue
+
         link = entry.get("link", "")
         items.append(
             {
@@ -54,6 +70,10 @@ def fetch_items(feed_url: str):
                 "link": link,
             }
         )
+
+        if len(items) >= MAX_ITEMS_PER_FEED:
+            break
+
     return items
 
 
@@ -73,12 +93,7 @@ def build_message(all_items):
 
 
 def send_to_feishu(text: str):
-    payload = {
-        "msg_type": "text",
-        "content": {
-            "text": text
-        }
-    }
+    payload = {"msg_type": "text", "content": {"text": text}}
     resp = requests.post(
         FEISHU_WEBHOOK,
         json=payload,
@@ -105,7 +120,7 @@ def main():
     all_items = all_items[:MAX_TOTAL_ITEMS]
 
     if not all_items:
-        text = f"{KEYWORD}早报\n今天没有抓到内容。"
+        text = f"{KEYWORD}早报\n今天没有抓到与{KEYWORD}相关的内容。"
     else:
         text = build_message(all_items)
 
