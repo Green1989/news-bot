@@ -1,0 +1,17 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python -c \"import sys,json;f=json.load(sys.stdin)['tool_input']['file_path'];exit(0) if not f.endswith('.py') else None;import py_compile;py_compile.compile(f,doraise=True)\" 2>/dev/null || true",
+            "timeout": 15,
+            "statusMessage": "Syntax checking edited file..."
+          }
+        ]
+      }
+    ]
+  }
+}
