@@ -15,10 +15,12 @@ MAX_ITEMS_PER_FEED = int(os.getenv("MAX_ITEMS_PER_FEED", "2"))
 MAX_TOTAL_ITEMS = int(os.getenv("MAX_TOTAL_ITEMS", "8"))
 FEEDS_FILE = os.getenv("FEEDS_FILE", "feeds.txt")
 KEYWORD = os.getenv("FEISHU_KEYWORD", "华为")
+KEYWORD_ALIASES = os.getenv("FEISHU_KEYWORD_ALIASES", "Huawei")
 MAX_ITEM_AGE_DAYS = int(os.getenv("MAX_ITEM_AGE_DAYS", "1"))
+_DEFAULT_KEYWORDS = f"{KEYWORD},{KEYWORD_ALIASES}"
 MATCH_KEYWORDS = [
     keyword.strip()
-    for keyword in os.getenv("FEISHU_MATCH_KEYWORDS", KEYWORD).split(",")
+    for keyword in os.getenv("FEISHU_MATCH_KEYWORDS", _DEFAULT_KEYWORDS).split(",")
     if keyword.strip()
 ]
 TITLE_STOPWORDS = ("huawei", "华为")

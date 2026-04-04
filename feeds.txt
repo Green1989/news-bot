@@ -2,15 +2,8 @@
 https://www.huawei.com/cn/rss-feeds/huawei-updates/rss
 
 # 国内科技媒体
-https://www.ithome.com/rss/
-https://36kr.com/feed-newsflash
-https://www.ifanr.com/feed
 https://rss.mydrivers.com/Rss.aspx?Tid=1
 
-# 补充聚合源
-https://news.google.com/rss/search?q=%22%E5%8D%8E%E4%B8%BA%22+when:3d&hl=zh-CN&gl=CN&ceid=CN:zh-Hans
-https://news.google.com/rss/search?q=%22Huawei%22+when:3d&hl=en-US&gl=US&ceid=US:en
-
-# 华为垂直媒体
+# 华为垂直媒体（海外）
+https://www.gizmochina.com/tag/huawei/feed/
 https://www.huaweicentral.com/feed/
-https://www.phonearena.com/feed/huawei
