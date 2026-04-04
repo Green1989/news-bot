@@ -147,7 +147,7 @@ class FetchItemsTests(unittest.TestCase):
 
         with (
             patch.object(send_news, "MATCH_KEYWORDS", ["华为"]),
-            patch.object(send_news, "MAX_ITEM_AGE_DAYS", 3),
+            patch.object(send_news, "MAX_ITEM_AGE_DAYS", 1),
             patch.object(send_news.feedparser, "parse", return_value=parsed),
         ):
             items = send_news.fetch_items("https://example.com/rss")
