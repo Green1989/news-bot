@@ -23,6 +23,48 @@ send_news = importlib.import_module("send_news")
 
 
 class FetchItemsTests(unittest.TestCase):
+    def test_relevance_score_title_only_match(self):
+        score = send_news.relevance_score(
+            "华为发布新芯片", "半导体行业迎来新变化", ["华为", "Huawei"]
+        )
+        self.assertEqual(score, 30)
+
+    def test_relevance_score_title_and_summary_match(self):
+        score = send_news.relevance_score(
+            "华为云服务扩展", "华为在云服务领域持续投入", ["华为", "Huawei"]
+        )
+        self.assertEqual(score, 40)
+
+    def test_relevance_score_summary_only_single_match(self):
+        score = send_news.relevance_score(
+            "科技行业周报", "本周华为发布了新产品", ["华为", "Huawei"]
+        )
+        self.assertEqual(score, 10)
+
+    def test_relevance_score_summary_multiple_matches(self):
+        score = send_news.relevance_score(
+            "行业动态汇总",
+            "华为云和华为终端在本季度表现亮眼，华为整体增长超预期",
+            ["华为", "Huawei"],
+        )
+        self.assertEqual(score, 20)
+
+    def test_relevance_score_no_match(self):
+        score = send_news.relevance_score(
+            "OpenAI 发布新模型", "人工智能行业新闻", ["华为", "Huawei"]
+        )
+        self.assertEqual(score, 0)
+
+    def test_relevance_score_empty_keywords(self):
+        score = send_news.relevance_score("任意标题", "任意摘要", [])
+        self.assertEqual(score, 100)
+
+    def test_relevance_score_title_multiple_keyword_occurrences(self):
+        score = send_news.relevance_score(
+            "华为华为华为连发三款新品", "简要描述", ["华为"]
+        )
+        self.assertEqual(score, 40)
+
     def test_fetch_items_matches_any_configured_keyword_alias(self):
         recent = time.gmtime(time.time() - 2 * 60 * 60)
         parsed = SimpleNamespace(
@@ -153,6 +195,57 @@ class FetchItemsTests(unittest.TestCase):
             items = send_news.fetch_items("https://example.com/rss")
 
         self.assertEqual([item["title"] for item in items], ["华为最新动态"])
+
+
+class SourceQualityTests(unittest.TestCase):
+    def test_source_type_authoritative(self):
+        self.assertEqual(
+            send_news.source_type_weight(
+                "https://www.huawei.com/cn/news/2026/3/report.html", "华为动态"
+            ),
+            40,
+        )
+
+    def test_source_type_mainstream(self):
+        self.assertEqual(
+            send_news.source_type_weight(
+                "https://www.ithome.com/0/123/456.htm", "IT之家"
+            ),
+            30,
+        )
+
+    def test_source_type_overseas_vertical(self):
+        self.assertEqual(
+            send_news.source_type_weight(
+                "https://www.huaweicentral.com/article/123", "HuaweiCentral"
+            ),
+            20,
+        )
+
+    def test_source_type_aggregator(self):
+        self.assertEqual(
+            send_news.source_type_weight(
+                "https://news.google.com/articles/xxx", "Google News"
+            ),
+            10,
+        )
+
+    def test_source_type_unknown(self):
+        self.assertEqual(
+            send_news.source_type_weight(
+                "https://random-blog.com/post/123", "Random Blog"
+            ),
+            0,
+        )
+
+    def test_summary_length_bonus_long(self):
+        self.assertEqual(send_news.summary_length_bonus("x" * 180), 20)
+
+    def test_summary_length_bonus_medium(self):
+        self.assertEqual(send_news.summary_length_bonus("x" * 100), 10)
+
+    def test_summary_length_bonus_short(self):
+        self.assertEqual(send_news.summary_length_bonus("x" * 30), 0)
 
 
 class MainFlowTests(unittest.TestCase):

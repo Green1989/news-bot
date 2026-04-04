@@ -35,11 +35,30 @@ def clean_text(text: str, limit: int = 140) -> str:
     return text
 
 
-def matches_keyword(title: str, summary: str, keywords: list[str]) -> bool:
+MIN_RELEVANCE_SCORE = int(os.getenv("MIN_RELEVANCE_SCORE", "30"))
+
+TITLE_MATCH_SCORE = 30
+SUMMARY_MATCH_SCORE = 10
+PER_EXTRA_MATCH = 5
+EXTRA_MATCH_CAP = 15
+
+
+def _match_score(count: int, base: int) -> int:
+    if count == 0:
+        return 0
+    return base + min((count - 1) * PER_EXTRA_MATCH, EXTRA_MATCH_CAP)
+
+
+def relevance_score(title: str, summary: str, keywords: list[str]) -> int:
     if not keywords:
-        return True
-    haystack = f"{title}\n{summary}".lower()
-    return any(keyword.lower() in haystack for keyword in keywords)
+        return 100
+    title_lower = title.lower()
+    summary_lower = summary.lower()
+    title_count = sum(title_lower.count(kw.lower()) for kw in keywords)
+    summary_count = sum(summary_lower.count(kw.lower()) for kw in keywords)
+    return _match_score(title_count, TITLE_MATCH_SCORE) + _match_score(
+        summary_count, SUMMARY_MATCH_SCORE
+    )
 
 
 def load_feeds(path: str):
@@ -79,9 +98,9 @@ def fetch_items(feed_url: str):
         title = clean_text(entry.get("title", "无标题"), 80)
         summary = clean_text(
             entry.get("summary", "") or entry.get("description", ""),
-            100,
+            200,
         )
-        if not matches_keyword(title, summary, MATCH_KEYWORDS):
+        if relevance_score(title, summary, MATCH_KEYWORDS) < MIN_RELEVANCE_SCORE:
             continue
 
         link = entry.get("link", "")
@@ -117,23 +136,41 @@ def story_key(item) -> str:
     return f"title:{normalized_title[:40]}"
 
 
-def source_priority(item) -> tuple[int, int, int]:
-    link = item.get("link", "").lower()
-    feed_title = item.get("feed_title", "").lower()
-    score = 0
-    if "/cn/" in link:
-        score += 40
-    if "ithome" in link or "it之家" in feed_title:
-        score += 30
-    if "36kr" in link or "ifanr" in link or "mydrivers" in link:
-        score += 20
-    if "huawei.com" in link:
-        score += 10
-    if "press release" in feed_title or "/en/" in link:
-        score -= 10
+SOURCE_WEIGHTS = [
+    (40, ("huawei.com/cn",)),
+    (30, ("ithome", "36kr", "ifanr", "mydrivers")),
+    (20, ("huaweicentral", "phonearena")),
+    (10, ("news.google",)),
+]
+
+
+def source_type_weight(link: str, feed_title: str) -> int:
+    link_lower = link.lower()
+    for weight, domains in SOURCE_WEIGHTS:
+        if any(d in link_lower for d in domains):
+            return weight
+    if "/en/" in link_lower:
+        return -10
+    return 0
+
+
+def summary_length_bonus(summary_text: str) -> int:
+    length = len(summary_text)
+    if length >= 150:
+        return 20
+    if length >= 50:
+        return 10
+    return 0
+
+
+def source_priority(item) -> tuple[int, int]:
+    link = item.get("link", "")
+    feed_title = item.get("feed_title", "")
+    quality_score = source_type_weight(link, feed_title) + summary_length_bonus(
+        item.get("summary", "")
+    )
     return (
-        score,
-        len(item.get("summary", "")),
+        quality_score,
         int(published_sort_value(item)),
     )
 
