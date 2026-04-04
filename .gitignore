@@ -1,1 +1,7 @@
 __pycache__/
+.claude/commands/
+.claude/skills/openspec-*/
+.codex/
+.github/prompts/
+.github/skills/
+openspec/
